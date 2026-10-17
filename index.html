@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Kanban Diario Albano Cozzuol</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#29286b">
+<style>
+  /* Layout: encabezado de marca, pestañas por planta, lista de insumos con tilde y barra inferior para armar el PDF */
+  :root{
+    --bg:#f2f4f8; --card:#ffffff; --txt:#1c1d33; --muted:#666a82;
+    --navy:#29286b; --blue:#3a6ea5; --btn:#29286b; --btn-txt:#ffffff;
+    --field:#ffffff; --line:#cfd3e2; --chip:#e4e6f0; --sel-bg:#e8eefb;
+    --prio:#1e8e4e; --prio-bg:#dcf2e4; --danger:#c0392b;
+    --shadow:rgba(20,20,60,.12); --toast:#222222;
+    --paper:#ffffff; --paper-ink:#1c1d33; --paper-line:#d9dce8; --paper-prio:#cdeed8; --paper-brand:#29286b;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#101226; --card:#1b1d38; --txt:#e8e9f6; --muted:#9a9eb8;
+      --navy:#1f1e57; --blue:#6f9fd6; --btn:#4a58c8; --btn-txt:#ffffff;
+      --field:#14162d; --line:#363a5e; --chip:#2a2d4d; --sel-bg:#232a52;
+      --prio:#2fa862; --prio-bg:#16382a; --danger:#ff6b5b;
+      --shadow:rgba(0,0,0,.4); --toast:#e8e9f6;
+      color-scheme:dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#101226; --card:#1b1d38; --txt:#e8e9f6; --muted:#9a9eb8;
+    --navy:#1f1e57; --blue:#6f9fd6; --btn:#4a58c8; --btn-txt:#ffffff;
+    --field:#14162d; --line:#363a5e; --chip:#2a2d4d; --sel-bg:#232a52;
+    --prio:#2fa862; --prio-bg:#16382a; --danger:#ff6b5b;
+    --shadow:rgba(0,0,0,.4); --toast:#e8e9f6;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;background:var(--bg);color:var(--txt);padding-bottom:calc(92px + env(safe-area-inset-bottom,0px))}
+  body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--navy)}
+  header{background:var(--navy);color:#fff;padding-block:16px 12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:5px solid var(--blue)}
+  .marca{display:flex;align-items:center;gap:10px}
+  .marca svg{width:38px;height:38px;flex:none}
+  .wm small{display:block;font-size:11px;letter-spacing:.35em;font-weight:600;opacity:.85}
+  .wm b{display:block;font-size:26px;letter-spacing:.06em;font-weight:800;line-height:1}
+  .sub{margin-top:10px;display:flex;flex-wrap:wrap;gap:4px 12px;justify-content:space-between;align-items:center;font-size:14px}
+  .sub strong{font-size:15px}
+
+  .tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding-block:10px 8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .tab{position:relative;min-height:50px;padding:10px 4px 6px;border-radius:10px;background:var(--chip);color:var(--txt);font-size:13px;line-height:1.15;font-weight:700}
+  .tab.on{background:var(--btn);color:var(--btn-txt)}
+  .tab i{position:absolute;top:-8px;right:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:var(--prio);color:#fff;font-size:12px;font-style:normal;line-height:20px;font-variant-numeric:tabular-nums}
+
+  main{padding-block:6px 14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));max-width:672px;margin:0 auto}
+  h2{font-size:15px;margin:16px 4px 8px;color:var(--blue);text-transform:uppercase;letter-spacing:.05em;display:flex;flex-wrap:wrap;gap:2px 12px;justify-content:space-between;align-items:baseline}
+  h2 span{font-size:13px;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:600}
+  .resumen{margin:4px 4px 10px;font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .resumen b{color:var(--txt)}
+  .banner{display:flex;gap:10px;align-items:center;justify-content:space-between;background:var(--sel-bg);border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:13px;line-height:1.35}
+  .banner[hidden]{display:none!important}
+  .banner button{flex:none;background:var(--btn);color:var(--btn-txt);padding:8px 12px;font-size:13px}
+
+  button{font:inherit;border:0;border-radius:10px;padding:11px 14px;font-weight:700;cursor:pointer;color:inherit;background:none}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+  .btn{background:var(--btn);color:var(--btn-txt)}
+  .btn:disabled{opacity:.45;cursor:default}
+  .btn.big{width:100%;min-height:50px;font-size:16px}
+  .btn-sec{background:var(--chip);color:var(--txt);flex:1 1 150px}
+  .btn-sec.on,.btn-sec.armed{background:var(--danger);color:#fff}
+  .btn-x{color:var(--muted);padding:6px 10px;font-size:18px}
+  .btn-x.armed{color:var(--danger);font-size:14px;border:1px solid var(--danger);padding:6px 8px;white-space:nowrap}
+
+  input[type=text],input[type=search],select{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;font-size:16px;background:var(--field);color:var(--txt)}
+  .buscar{margin-bottom:10px}
+
+  .fila{background:var(--card);border-radius:12px;padding:10px 12px;margin-bottom:8px;box-shadow:0 1px 3px var(--shadow)}
+  .fila.on{background:var(--sel-bg)}
+  .fila.prio{background:var(--prio-bg)}
+  .top{display:flex;gap:12px;align-items:center}
+  .chk{width:28px;height:28px;accent-color:var(--blue);flex:none}
+  .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;cursor:pointer}
+  .cod{font-weight:800;font-size:17px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+  .sub2{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+  .det{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:10px;padding-left:40px}
+  .f{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted);font-weight:600;flex:1 1 140px;min-width:0}
+  .f.s{flex:0 1 120px}
+  .prio-btn{min-height:44px;border:2px solid var(--prio);color:var(--prio);background:transparent}
+  .prio-btn.on{background:var(--prio);color:#fff}
+  .vacio{background:var(--card);border-radius:12px;padding:16px;text-align:center;color:var(--muted);font-size:14px}
+
+  .admin{background:var(--card);border-radius:14px;padding:14px;margin-top:18px;box-shadow:0 1px 3px var(--shadow)}
+  .admin h3{margin:0 0 10px;font-size:15px;color:var(--blue)}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:10px}
+  .row2{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+
+  .bar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);border-top:1px solid var(--line);padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+  .toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--toast);color:var(--bg);padding:12px 16px;border-radius:12px;font-size:14px;max-width:90%;text-align:center;opacity:0;pointer-events:none;transition:opacity .25s;z-index:30}
+  .toast.show{opacity:1}
+
+  .overlay{position:fixed;inset:0;z-index:20;background:var(--bg);overflow:auto;padding:max(12px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+  .overlay[hidden]{display:none!important}
+  .ov-top{max-width:640px;margin:0 auto;display:flex;gap:10px;align-items:center;justify-content:space-between}
+  .ov-top strong{font-size:15px}
+  .nota{max-width:640px;margin:10px auto 0;font-size:13px;color:var(--muted);line-height:1.4}
+  input[type=text].falta{border-color:var(--danger)}
+  .enviar{max-width:640px;margin:12px auto 0;background:var(--card);border-radius:14px;padding:14px;box-shadow:0 1px 3px var(--shadow)}
+  .enviar .row2 .btn{flex:1 1 150px}
+  .btn.wsp{background:var(--prio)}
+  .papel{background:var(--paper);color:var(--paper-ink);border-radius:6px;padding:18px 16px;max-width:640px;margin:12px auto;box-shadow:0 2px 10px var(--shadow)}
+  .p-head{display:flex;align-items:center;gap:10px;border-bottom:3px solid var(--paper-brand);padding-bottom:10px}
+  .p-head svg{width:34px;height:34px;flex:none}
+  .p-head .wm b{color:var(--paper-brand);font-size:22px}
+  .p-head .wm small{color:var(--paper-brand)}
+  .papel h1{font-size:19px;margin:14px 0 4px}
+  .papel h3{font-size:14px;margin:16px 0 6px;color:var(--paper-brand);text-transform:uppercase;letter-spacing:.05em}
+  .p-meta{font-size:13px;margin:0 0 8px;font-variant-numeric:tabular-nums}
+  .tbl{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid var(--paper-ink);padding:6px 4px}
+  td{padding:6px 4px;border-bottom:1px solid var(--paper-line);vertical-align:top}
+  tr.p td{background:var(--paper-prio);font-weight:700}
+  .vacio-p{padding:18px 4px;font-size:14px}
+  @media (prefers-reduced-motion: reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="marca">
+    <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M3 34 L17 6 L24 6 L10 34 Z" fill="#fff"/><path d="M17 34 L31 6 L37 6 L25 34 Z" fill="#6f9fd6"/></svg>
+    <div class="wm"><small>ALBANO</small><b>COZZUOL</b></div>
+  </div>
+  <div class="sub"><strong>Kanban diario · Insumos</strong><span id="fecha"></span></div>
+</header>
+
+<nav class="tabs" id="tabs" aria-label="Planta"></nav>
+
+<main>
+  <div class="banner" id="banner" hidden>
+    <span>Vista previa con datos de ejemplo, tomados de tus hojas del 16/10. Se borran con "Borrar tildes de hoy".</span>
+    <button type="button" data-a="closeBanner" id="closeBanner">Entendido</button>
+  </div>
+  <div class="buscar"><input type="search" id="buscar" placeholder="Buscar código o descripción" autocomplete="off" aria-label="Buscar insumo"></div>
+  <div class="resumen" id="resumen"></div>
+  <div id="lista"></div>
+  <section class="admin" id="admin"></section>
+</main>
+
+<div class="bar"><button type="button" class="btn big" id="pdfBtn" data-a="pdf"></button></div>
+
+<div class="overlay" id="pdf" hidden>
+  <div class="ov-top"><strong>Vista previa del PDF</strong><button type="button" class="btn" id="pdfClose" data-a="pdfClose">Volver a la lista</button></div>
+  <section class="enviar" aria-label="Enviar el PDF">
+    <label class="f" for="mailTo"><span>Correo de destino (queda guardado en este celular)</span><input type="text" inputmode="email" id="mailTo" autocomplete="email" placeholder="nombre@empresa.com"></label>
+    <div class="row2"><button type="button" class="btn wsp" id="wspBtn" data-a="wsp">Compartir por WhatsApp</button><button type="button" class="btn" id="mailBtn" data-a="mail">Armar correo</button></div>
+  </section>
+  <div class="papel" id="pdfDoc"></div>
+  <p class="nota">Así saldría el PDF. En esta vista previa los dos botones de envío solo muestran un aviso. En la app instalada arman el PDF y abren WhatsApp o tu correo con el archivo adjunto, listo para enviar.</p>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  'use strict';
+  var KEY='kanbanAlbanoCozzuolApp';
+  var DATA={"p1": {"nombre": "Planta 1", "tipo": "entrega", "secciones": [{"t": "", "items": [{"c": "MP425", "d": "Separador de cartón"}, {"c": "MP840", "d": "Separador de cartón"}, {"c": "MP2011", "d": "Separador de cartón"}, {"c": "MP2211", "d": "Separador de cartón"}, {"c": "MP2502", "d": "Separador de cartón"}, {"c": "MP1267", "d": "Tapa Visteon"}, {"c": "MP1486", "d": "Cerco Visteon"}, {"c": "MP1973", "d": "Cerco bajo"}, {"c": "MP1999", "d": "Caja de cartón"}, {"c": "MP150", "d": "Bolsa"}, {"c": "MP2159", "d": "Bolsa"}, {"c": "MP2173", "d": "Bolsa"}, {"c": "MP667", "d": "Bolsa"}, {"c": "MP1479", "d": "Bolsa"}, {"c": "MP147", "d": "Bolsa"}, {"c": "MP2060", "d": "Bolsa"}, {"c": "MP141", "d": "Bolsa"}, {"c": "MP1562", "d": "Bolsa"}, {"c": "MP3974", "d": "Insumo"}, {"c": "MP3854", "d": "Bolsa PEE"}, {"c": "MP05998", "d": "Insumo"}, {"c": "MP1358", "d": "Insumo"}, {"c": "MP1509", "d": "Insumo"}, {"c": "MP1373", "d": "Mat. Petrocuyo"}, {"c": "MP2109", "d": "Mat. Petrocuyo"}, {"c": "MP2896", "d": "Mat. Petrocuyo"}, {"c": "MP3434", "d": "Mat. Petrocuyo"}, {"c": "MP4259", "d": "Mat. Petrocuyo"}, {"c": "MP4261", "d": "Mat. Petrocuyo"}, {"c": "MP4256", "d": "Mat. Petrocuyo"}, {"c": "MP521", "d": "Ácido esteárico"}, {"c": "MP13139", "d": "Pallet plástico negro"}, {"c": "MP4841", "d": "Foil"}, {"c": "MP161", "d": "Desmoldante"}, {"c": "MP675", "d": "Cinta transparente"}, {"c": "MP5406", "d": "Separador de plástico"}, {"c": "ID MARK", "d": "Etiquetas C, F, Q… (x 2000)"}]}]}, "p2a": {"nombre": "Planta 2 altillo", "tipo": "pallet", "secciones": [{"t": "Solicitar a Planta 1", "items": [{"c": "6736", "s": 1}, {"c": "5794", "s": 1}, {"c": "6734", "s": 1}, {"c": "7448", "s": 1}, {"c": "5792", "s": 1}, {"c": "5791", "s": 1}, {"c": "7449", "s": 1}, {"c": "6733", "s": 1}, {"c": "5793", "s": 1}, {"c": "6735", "s": 1}, {"c": "6874", "s": 2}, {"c": "6256", "s": 2}, {"c": "9508", "s": 1}, {"c": "10140", "s": 2}, {"c": "6946", "s": 2}, {"c": "6583", "s": 2}, {"c": "6613", "s": 2}, {"c": "6944", "s": 2}, {"c": "6742", "s": 2}, {"c": "MP5826", "s": 4}, {"c": "6876", "s": 2}, {"c": "13199", "s": 2}, {"c": "6198", "s": 1}, {"c": "6197", "s": 1}, {"c": "6188", "s": 2}, {"c": "6199", "s": 2}, {"c": "6200", "s": 2}, {"c": "6195", "s": 1}, {"c": "6196", "s": 1}, {"c": "12162", "s": 2}, {"c": "12166", "s": 2}, {"c": "6614", "s": 2}, {"c": "6615", "s": 2}, {"c": "10623", "s": 2}, {"c": "10624", "s": 2}, {"c": "7048", "s": 2}, {"c": "7049", "s": 2}, {"c": "9492", "s": 1}, {"c": "11480", "s": 1}, {"c": "11481", "s": 1}, {"c": "12407", "s": 1}, {"c": "12393", "s": 1}, {"c": "12392", "s": 1}, {"c": "6643", "s": 1}, {"c": "6637", "s": 1}, {"c": "6255", "s": 1}, {"c": "6254", "s": 1}, {"c": "9345", "s": 1}, {"c": "9346", "s": 1}, {"c": "9347", "s": 1}, {"c": "9348", "s": 1}, {"c": "6662", "s": 1}, {"c": "6663", "s": 1}, {"c": "6664", "s": 1}, {"c": "6665", "s": 1}, {"c": "10989", "s": 1}, {"c": "10988", "s": 1}, {"c": "9760", "s": 1}, {"c": "9759", "s": 1}, {"c": "7249", "s": 1}, {"c": "7248", "s": 1}, {"c": "7247", "s": 1}, {"c": "7246", "s": 1}, {"c": "6867", "s": 1}, {"c": "6866", "s": 1}, {"c": "6872", "s": 1}, {"c": "13195", "s": 2}, {"c": "12629", "s": 2}, {"c": "13639", "s": 2}, {"c": "10141", "s": 2}, {"c": "6947", "s": 2}, {"c": "2247", "s": 1}, {"c": "6612", "s": 2}, {"c": "6945", "s": 2}, {"c": "6741", "s": 2}, {"c": "MP5827", "s": 4}, {"c": "6935", "s": 4}, {"c": "6566", "s": 2}, {"c": "6965", "s": 2}, {"c": "6966", "s": 2}, {"c": "6871", "s": 2}, {"c": "6870", "s": 2}, {"c": "6869", "s": 2}, {"c": "6868", "s": 2}, {"c": "12762", "s": 2}, {"c": "12763", "s": 2}]}, {"t": "Solicitar a Planta 3", "items": [{"c": "6598", "s": 1}, {"c": "6597", "s": 1}]}]}, "p2p": {"nombre": "Planta 2 piso", "tipo": "pallet", "secciones": [{"t": "Pedido de piezas", "items": [{"c": "6247", "s": 6}, {"c": "6246", "s": 6}, {"c": "9341", "s": 2}, {"c": "9342", "s": 2}, {"c": "9343", "s": 2}, {"c": "9344", "s": 2}, {"c": "6186", "s": 10}, {"c": "7000", "s": 20}, {"c": "7001", "s": 24}, {"c": "13434", "s": 5}, {"c": "6243", "s": 6}, {"c": "6242", "s": 6}, {"c": "13435", "s": 5}, {"c": "6627", "s": 6}, {"c": "6628", "s": 6}, {"c": "6626", "s": 10}, {"c": "10130", "s": 3}, {"c": "10131", "s": 3}, {"c": "6739", "s": 4}, {"c": "6740", "s": 4}, {"c": "5762", "s": 3}, {"c": "5763", "s": 3}, {"c": "5760", "s": 4}, {"c": "2245", "s": 4}, {"c": "6222", "s": 2}]}]}, "p3": {"nombre": "Planta 3", "tipo": "stock", "secciones": [{"t": "", "items": [{"c": "13139", "d": "Pallets plásticos", "s": "3 filas"}, {"c": "MP2007", "d": "Pallets 100 x 120", "s": "1 fila"}, {"c": "MP2515", "d": "Punta de lápiz", "s": "20"}, {"c": "MP2514", "d": "Steel Paint (lápiz)", "s": "2"}, {"c": "MP01509", "d": "Clip", "s": "Min 7000 / Max 14000"}, {"c": "MP03891", "d": "Clip", "s": "Min 4000 / Max 6000"}, {"c": "MP03876", "d": "Clip", "s": "Min 10000 / Max 15000"}, {"c": "MP03766", "d": "Clip", "s": "Min 4000 / Max 8000"}, {"c": "MP03811", "d": "Clip", "s": "Min 2000 / Max 8000"}, {"c": "MP03872", "d": "Clip", "s": "Min 4000 / Max 8000"}, {"c": "MP1357", "d": "Clip", "s": "Min 1000 / Max 5000"}, {"c": "MP03975", "d": "Clip", "s": "Min 6000 / Max 12000"}, {"c": "MP06973", "d": "Clip", "s": "Min 3000 / Max 6000"}, {"c": "MP04064", "d": "Bujes", "s": "Min 6000 / Max 12000"}, {"c": "MP2143", "d": "Clip", "s": "Min 4000 / Max 6000"}, {"c": "MP2144", "d": "Clip", "s": "Min 6000 / Max 9000"}, {"c": "MP04032", "d": "Bujes", "s": "Min 4000 / Max 6008"}, {"c": "MP03771", "d": "Clip", "s": "Min 3000 / Max 6000"}, {"c": "MP161", "d": "Desmoldante", "s": "12"}, {"c": "MP1471", "d": "Promotor", "s": "2"}, {"c": "MP675", "d": "Cinta transparente", "s": "108"}, {"c": "MP1184", "d": "Cinta papel", "s": "96"}, {"c": "MP1958", "d": "Láminas Pedd", "s": "120"}, {"c": "MP6032", "d": "Hilo", "s": "16"}, {"c": "MP04063", "d": "Cushion (buje)", "s": "12000"}, {"c": "MP2014", "d": "Separador", "s": "Min 250 / Max 500"}, {"c": "MP1591", "d": "Bolsa PEE 43 x 120", "s": "4000"}, {"c": "MP840", "d": "Separador", "s": "Min 500 / Max 2000"}, {"c": "MP1624", "d": "Bolsas", "s": "Min 600 / Max 1200"}, {"c": "MP150", "d": "Bolsa PEE 80 x 80", "s": "2000"}, {"c": "MP2173", "d": "Bolsa PEE 40 x 70", "s": "4000"}, {"c": "MP2011", "d": "Separador", "s": "Min 500 / Max 2000"}, {"c": "MP2211", "d": "Separador", "s": "Min 500 / Max 2000"}, {"c": "MP1463", "d": "Bolsa PEE 420 x 60", "s": "3000 (1 P x 12 cajas)"}, {"c": "MP2502", "d": "Separador", "s": "Min 100 / Max 250"}, {"c": "MP1267", "d": "Tapa Visteon", "s": "Min 150 / Max 400"}, {"c": "MP3379", "d": "Bolsa PEE 45 x 140", "s": "2 pallets"}, {"c": "MP425", "d": "Separador", "s": "Min 100 / Max 250"}, {"c": "MP1999", "d": "Caja 60 x 40", "s": "Min 50 / Max 100"}, {"c": "MP1973", "d": "Cerco 120 x 10", "s": "Min 75 / Max 150"}, {"c": "MP3019", "d": "Bolsa PEE 25 x 114", "s": "2 pallets"}, {"c": "MP2525", "d": "Tapa cerco 2524", "s": "Min 150 / Max 300"}, {"c": "MP2524", "d": "Cerco 160 x 80", "s": "Min 75 / Max 150"}, {"c": "MP1486", "d": "Cerco Visteon", "s": "Min 35 / Max 75"}, {"c": "MP2884", "d": "Caja alternativa", "s": "Min 30 / Max 60"}, {"c": "MP2008", "d": "Caja", "s": "Min 80 / Max 200"}, {"c": "MP1231", "d": "Separador", "s": "Min 100 / Max 350"}, {"c": "MP2035", "d": "Caja alternativa", "s": "Min 30 / Max 60"}, {"c": "MP2010", "d": "Separador", "s": "Min 200 / Max 750"}, {"c": "MP2531", "d": "Separador", "s": "Min 600 / Max 3000"}, {"c": "MP1272", "d": "Caja", "s": "Min 100 / Max 300"}, {"c": "MP4841", "d": "Foil", "s": "1 pallet"}, {"c": "MP1762", "d": "Material", "s": "2000 (1000 estant. / 1000 máq.)"}, {"c": "MP3434", "d": "Material", "s": "2000 (1000 estant. / 1000 máq.)"}, {"c": "MP4340", "d": "Material", "s": "2000 (1000 estant. / 1000 máq.)"}, {"c": "MP2109", "d": "Material", "s": "1000"}, {"c": "MP3433", "d": "Material", "s": "75"}, {"c": "MP4256", "d": "Material", "s": "2000 (1000 estant. / 1000 máq.)"}, {"c": "MP4257", "d": "Material", "s": "1000"}, {"c": "MP2896", "d": "Material", "s": "1360 (680 estant. / 680 máq.)"}, {"c": "MP7013", "d": "Material", "s": "1000"}, {"c": "MP6013", "d": "Material", "s": "1000"}, {"c": "MP2509", "d": "Separador de goma", "s": "Min 1800 / Max 3000"}, {"c": "MP5406", "d": "Separador plástico", "s": "Mínimo 5 cajones"}, {"c": "Cajón 42"}]}]}};
+  var SEED={};
+  var ORDER=['p1','p2a','p2p','p3'];
+  var UNIDADES=['Unidad','Caja','Cartón','Pallet','Bolsa'];
+  var S;
+
+  function pad(n){return (n<10?'0':'')+n;}
+  function hoy(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function idOf(k){return k.replace(/[^A-Za-z0-9]/g,'_');}
+  function norm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
+  function el(id){return document.getElementById(id);}
+
+  function guardar(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+  function toast(msg){var t=el('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(function(){t.classList.remove('show');},3500);}
+
+  function secciones(tab){
+    var d=DATA[tab],rem=S.removed[tab]||[],ex=S.extra[tab]||[];
+    var out=d.secciones.map(function(s,si){
+      return {t:s.t,items:s.items.filter(function(it){return rem.indexOf(it.c)<0;}).map(function(it){return mk(tab,si,it,false);})};
+    });
+    var last=out[out.length-1];
+    ex.forEach(function(it){last.items.push(mk(tab,out.length-1,it,true));});
+    return out;
+  }
+  function mk(tab,si,it,x){return {k:tab+'|'+si+'|'+it.c,c:it.c,d:it.d||'',s:it.s,x:x};}
+  function rowEl(k){var all=document.querySelectorAll('.fila'),i;for(i=0;i<all.length;i++){if(all[i].getAttribute('data-k')===k)return all[i];}return null;}
+  function lookup(k){var tab=k.split('|')[0],out=null;secciones(tab).forEach(function(s){s.items.forEach(function(r){if(r.k===k)out=r;});});return out;}
+  function selCount(tab){var n=0;secciones(tab).forEach(function(s){s.items.forEach(function(r){var st=S.rows[r.k];if(st&&st.on)n++;});});return n;}
+  function total(tab){var n=0;secciones(tab).forEach(function(s){n+=s.items.length;});return n;}
+
+  function aplicarSemilla(){
+    Object.keys(SEED).forEach(function(tab){
+      secciones(tab).forEach(function(s){s.items.forEach(function(r){
+        var sd=SEED[tab][r.c];
+        if(sd){S.rows[r.k]={on:1,q:sd.q||'',u:sd.u||((tab==='p2a'||tab==='p2p')?'Pallet':'Unidad'),p:sd.p?1:0};}
+      });});
+    });
+  }
+
+  function cargar(){
+    try{S=JSON.parse(localStorage.getItem(KEY));}catch(e){S=null;}
+    if(!S||typeof S!=='object'){S={};}
+    S.rows=S.rows||{};S.extra=S.extra||{};S.removed=S.removed||{};
+    if(ORDER.indexOf(S.tab)<0){S.tab='p1';}
+    S.edit=false;
+    if(S.fecha!==hoy()){S.rows={};S.fecha=hoy();}
+    if(!S.seeded){aplicarSemilla();S.seeded=true;}
+    guardar();
+  }
+
+  function renderTabs(){
+    el('tabs').innerHTML=ORDER.map(function(t){
+      var n=selCount(t);
+      return '<button type="button" class="tab'+(t===S.tab?' on':'')+'" id="tab_'+t+'" data-a="tab" data-t="'+t+'">'+esc(DATA[t].nombre)+(n?'<i>'+n+'</i>':'')+'</button>';
+    }).join('');
+  }
+
+  function rowHtml(tab,tipo,r){
+    var st=S.rows[r.k]||{},on=!!st.on,id=idOf(r.k),sub='';
+    if(tipo==='pallet'){sub='Stock ideal: '+esc(r.s);}
+    else{sub=esc(r.d);if(r.s){sub+=(sub?' · ':'')+esc(r.s);}}
+    var h='<div class="fila'+(on?' on':'')+(on&&st.p?' prio':'')+'" data-k="'+esc(r.k)+'">'+
+      '<div class="top"><input type="checkbox" class="chk" id="c_'+id+'" data-a="on"'+(on?' checked':'')+' aria-label="'+(tipo==='entrega'?'Entregar ':'Pedir ')+esc(r.c)+'">'+
+      '<label class="txt" for="c_'+id+'"><span class="cod">'+esc(r.c)+'</span>'+(sub?'<span class="sub2">'+sub+'</span>':'')+'</label>'+
+      (S.edit?'<button type="button" class="btn-x" data-a="del" aria-label="Quitar '+esc(r.c)+'">✕</button>':'')+'</div>';
+    if(on){
+      var dflt=(tipo==='pallet')?'Pallet':'Unidad';
+      h+='<div class="det">'+
+        '<label class="f"><span>Cantidad</span><input type="text" inputmode="decimal" id="q_'+id+'" data-a="q" class="'+(st.q?'':'falta')+'" value="'+esc(st.q||'')+'" placeholder="Ej.: 3000"></label>'+
+        '<label class="f s"><span>Unidad</span><select id="u_'+id+'" data-a="u">'+UNIDADES.map(function(u){return '<option'+(u===(st.u||dflt)?' selected':'')+'>'+u+'</option>';}).join('')+'</select></label>';
+      {
+        h+='<button type="button" class="prio-btn'+(st.p?' on':'')+'" data-a="prio" aria-pressed="'+(st.p?'true':'false')+'">Prioridad</button>';
+      }
+      h+='</div>';
+    }
+    return h+'</div>';
+  }
+  function refreshRow(f){
+    var r=lookup(f.getAttribute('data-k'));if(!r)return;
+    var t=document.createElement('div');t.innerHTML=rowHtml(S.tab,DATA[S.tab].tipo,r);f.replaceWith(t.firstChild);
+  }
+
+  function renderList(){
+    var tab=S.tab,tipo=DATA[tab].tipo,q=norm(el('buscar').value),html='';
+    secciones(tab).forEach(function(sec){
+      var rows=sec.items.filter(function(r){return !q||norm(r.c).indexOf(q)>=0||norm(r.d).indexOf(q)>=0;});
+      if(!rows.length)return;
+      if(sec.t){html+='<h2>'+esc(sec.t)+' <span>'+rows.length+' insumos</span></h2>';}
+      html+=rows.map(function(r){return rowHtml(tab,tipo,r);}).join('');
+    });
+    el('lista').innerHTML=html||'<div class="vacio">No hay insumos que coincidan con la búsqueda.</div>';
+    var n=selCount(tab);
+    el('resumen').innerHTML='<b>'+total(tab)+'</b> insumos en la lista · <b>'+n+'</b> '+(tipo==='entrega'?'para entregar':'para pedir');
+  }
+
+  function renderAdmin(){
+    var tipo=DATA[S.tab].tipo;
+    var h='<h3>Administrar la lista de '+esc(DATA[S.tab].nombre)+'</h3><div class="grid2">'+
+      '<label class="f"><span>Código</span><input type="text" id="nuevoC" maxlength="20" placeholder="Ej.: MP2345"></label>';
+    if(tipo!=='pallet'){h+='<label class="f"><span>Descripción</span><input type="text" id="nuevoD" maxlength="40"></label>';}
+    if(tipo!=='entrega'){h+='<label class="f"><span>Stock ideal</span><input type="text" id="nuevoS" maxlength="30"></label>';}
+    h+='</div><button type="button" class="btn" id="addBtn" data-a="add">Agregar insumo</button>'+
+      '<div class="row2"><button type="button" class="btn-sec'+(S.edit?' on':'')+'" id="editBtn" data-a="edit">'+(S.edit?'Terminar de quitar':'Quitar insumos')+'</button>'+
+      '<button type="button" class="btn-sec" id="clearBtn" data-a="clear">Borrar tildes de hoy</button></div>';
+    el('admin').innerHTML=h;
+  }
+
+  function renderBar(){
+    var n=selCount(S.tab),b=el('pdfBtn');
+    b.textContent=n?('Armar PDF · '+DATA[S.tab].nombre+' · '+n+(n===1?' insumo':' insumos')):'Tildá insumos para armar el PDF';
+    b.disabled=!n;
+  }
+  function renderBanner(){el('banner').hidden=true;}
+  function renderFecha(){
+    var d=new Date(),dias=['dom','lun','mar','mié','jue','vie','sáb'];
+    el('fecha').textContent=dias[d.getDay()]+' '+pad(d.getDate())+'/'+pad(d.getMonth()+1);
+  }
+  function renderTodo(){renderTabs();renderBanner();renderList();renderAdmin();renderBar();}
+  function afterChange(){renderTabs();renderBar();el('resumen').querySelectorAll('b')[1].textContent=selCount(S.tab);}
+
+  function confirmar(btn,fn,msg){
+    if(btn.getAttribute('data-armado')==='1'){fn();return;}
+    btn.setAttribute('data-armado','1');btn.setAttribute('data-orig',btn.textContent);
+    btn.textContent=msg||'¿Borrar?';btn.classList.add('armed');
+    setTimeout(function(){
+      if(btn.isConnected&&btn.getAttribute('data-armado')==='1'){
+        btn.removeAttribute('data-armado');btn.textContent=btn.getAttribute('data-orig');btn.classList.remove('armed');
+      }
+    },3000);
+  }
+
+  function agregar(){
+    var tipo=DATA[S.tab].tipo;
+    function v(id){var e=el(id);return e?e.value.trim():'';}
+    var c=v('nuevoC'),d=v('nuevoD'),s=v('nuevoS');
+    if(!c){toast('Escribí el código del insumo.');return;}
+    var existe=false;
+    secciones(S.tab).forEach(function(sec){sec.items.forEach(function(r){if(r.c.toLowerCase()===c.toLowerCase())existe=true;});});
+    if(existe){toast('Ese código ya está en la lista.');return;}
+    var it={c:c};if(d)it.d=d;if(s)it.s=(tipo==='pallet'&&/^\d+$/.test(s))?parseInt(s,10):s;
+    (S.extra[S.tab]=S.extra[S.tab]||[]).push(it);
+    guardar();renderTodo();toast('Agregado: '+c);
+  }
+
+  var PLURAL={'Unidad':['unidad','unidades'],'Caja':['caja','cajas'],'Cartón':['cartón','cartones'],'Pallet':['pallet','pallets'],'Bolsa':['bolsa','bolsas']};
+  function cantTxt(tipo,st){
+    var u=st.u||(tipo==='pallet'?'Pallet':'Unidad'),p=PLURAL[u]||[u,u];
+    return esc(st.q||'')+' '+(String(st.q).trim()==='1'?p[0]:p[1]);
+  }
+  function pdfTabla(tipo){
+    if(tipo==='pallet')return ['Código','Stock ideal','Cantidad','Prioridad'];
+    if(tipo==='stock')return ['Código','Descripción','Stock ideal','Cantidad','Prioridad'];
+    return ['Código','Descripción','Cantidad','Prioridad'];
+  }
+  function pdfFila(tipo,r,st){
+    var cant=cantTxt(tipo,st);
+    if(tipo==='pallet'){return '<tr'+(st.p?' class="p"':'')+'><td><b>'+esc(r.c)+'</b></td><td>'+esc(r.s)+'</td><td>'+cant+'</td><td>'+(st.p?'PRIORIDAD':'')+'</td></tr>';}
+    var pr='<td>'+(st.p?'PRIORIDAD':'')+'</td>',tr=st.p?' class="p"':'';
+    if(tipo==='stock'){return '<tr'+tr+'><td><b>'+esc(r.c)+'</b></td><td>'+esc(r.d)+'</td><td>'+esc(r.s||'')+'</td><td>'+cant+'</td>'+pr+'</tr>';}
+    return '<tr'+tr+'><td><b>'+esc(r.c)+'</b></td><td>'+esc(r.d)+'</td><td>'+cant+'</td>'+pr+'</tr>';
+  }
+  var PDFDATA=null;
+  function celdas(tipo,r,st){
+    var q=cantTxt(tipo,st).replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'");
+    if(tipo==='pallet')return [r.c,String(r.s==null?'':r.s),q,st.p?'PRIORIDAD':''];
+    if(tipo==='stock')return [r.c,r.d||'',String(r.s==null?'':r.s),q,st.p?'PRIORIDAD':''];
+    return [r.c,r.d||'',q,st.p?'PRIORIDAD':''];
+  }
+  function abrirPdf(){
+    var tab=S.tab,d=DATA[tab],tipo=d.tipo,now=new Date(),n=0,body='';
+    var faltan=[];secciones(tab).forEach(function(sec){sec.items.forEach(function(r){var s0=S.rows[r.k];if(s0&&s0.on&&!s0.q)faltan.push(r.c);});});
+    if(faltan.length){toast('Falta la cantidad en: '+faltan.join(', '));return;}
+    PDFDATA={titulo:'Kanban · '+d.nombre,planta:d.nombre,secs:[],n:0};
+    var fecha=pad(now.getDate())+'/'+pad(now.getMonth()+1)+'/'+now.getFullYear(),hora=pad(now.getHours())+':'+pad(now.getMinutes());
+    secciones(tab).forEach(function(sec){
+      var sel=sec.items.filter(function(r){var st=S.rows[r.k];return st&&st.on;});
+      if(!sel.length)return;
+      sel=sel.map(function(r,i){return {r:r,i:i};}).sort(function(a,b){
+        var pa=S.rows[a.r.k].p?1:0,pb=S.rows[b.r.k].p?1:0;return (pb-pa)||(a.i-b.i);
+      }).map(function(x){return x.r;});
+      n+=sel.length;
+      PDFDATA.secs.push({t:sec.t||'',cols:pdfTabla(tipo),rows:sel.map(function(r){var st=S.rows[r.k];return {c:celdas(tipo,r,st),p:st.p?1:0};})});
+      if(sec.t){body+='<h3>'+esc(sec.t)+'</h3>';}
+      body+='<div class="tbl"><table><thead><tr>'+pdfTabla(tipo).map(function(h){return '<th>'+h+'</th>';}).join('')+'</tr></thead><tbody>'+
+        sel.map(function(r){return pdfFila(tipo,r,S.rows[r.k]);}).join('')+'</tbody></table></div>';
+    });
+    el('pdfDoc').innerHTML='<div class="p-head"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M3 34 L17 6 L24 6 L10 34 Z" fill="#29286b"/><path d="M17 34 L31 6 L37 6 L25 34 Z" fill="#3a6ea5"/></svg>'+
+      '<div class="wm"><small>ALBANO</small><b>COZZUOL</b></div></div>'+
+      '<h1>Kanban · '+esc(d.nombre)+'</h1>'+
+      '<p class="p-meta">Fecha: '+fecha+' · Hora: '+hora+' · '+n+' '+(tipo==='entrega'?'insumos a entregar':'insumos a pedir')+'</p>'+
+      (body||'<p class="vacio-p">No hay insumos tildados.</p>');
+    PDFDATA.n=n;PDFDATA.meta='Fecha: '+fecha+' · Hora: '+hora+' · '+n+' '+(tipo==='entrega'?'insumos a entregar':'insumos a pedir');PDFDATA.fecha=fecha.replace(/\//g,'-')+'_'+hora.replace(':','')+'';
+    el('mailTo').value=S.mail||'';el('pdf').hidden=false;el('pdf').scrollTop=0;
+  }
+
+  document.addEventListener('click',function(e){
+    var b=e.target.closest('[data-a]');if(!b)return;
+    var a=b.getAttribute('data-a'),f=b.closest('.fila'),k=f&&f.getAttribute('data-k'),st;
+    if(a==='tab'){S.tab=b.getAttribute('data-t');guardar();el('buscar').value='';window.scrollTo(0,0);renderTodo();return;}
+    if(a==='closeBanner'){S.banner=false;guardar();renderBanner();return;}
+    if(a==='pdf'){abrirPdf();return;}
+    if(a==='pdfClose'){el('pdf').hidden=true;return;}
+    if(a==='wsp'){
+      if(!window.AndroidKanban){toast('Esto funciona solo en la app instalada.');return;}
+      if(!PDFDATA||!PDFDATA.n){toast('No hay insumos tildados.');return;}
+      try{window.AndroidKanban.compartir(JSON.stringify(PDFDATA),'wsp','');}catch(err){toast('No se pudo armar el PDF.');}return;
+    }
+    if(a==='mail'){
+      var ms=el('mailTo').value.split(/[;,\s]+/).filter(Boolean);
+      var ok=ms.length>0&&ms.every(function(x){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x);});
+      if(!ok){toast('Escribí un correo válido, por ejemplo nombre@empresa.com');el('mailTo').focus();return;}
+      S.mail=ms.join(', ');guardar();
+      if(!window.AndroidKanban){toast('Esto funciona solo en la app instalada.');return;}
+      if(!PDFDATA||!PDFDATA.n){toast('No hay insumos tildados.');return;}
+      try{window.AndroidKanban.compartir(JSON.stringify(PDFDATA),'mail',ms.join(','));}catch(err){toast('No se pudo armar el PDF.');}return;
+    }
+    if(a==='add'){agregar();return;}
+    if(a==='edit'){S.edit=!S.edit;renderList();renderAdmin();return;}
+    if(a==='clear'){
+      confirmar(b,function(){
+        Object.keys(S.rows).forEach(function(key){if(key.indexOf(S.tab+'|')===0)delete S.rows[key];});
+        guardar();renderTodo();toast('Tildes borrados.');
+      },'Tocá de nuevo para borrar');return;
+    }
+    if(!f)return;
+    st=S.rows[k]=S.rows[k]||{};
+    if(a==='prio'){st.p=st.p?0:1;guardar();refreshRow(f);return;}
+    if(a==='del'){
+      confirmar(b,function(){
+        var r=lookup(k);if(!r)return;
+        if(r.x){S.extra[S.tab]=(S.extra[S.tab]||[]).filter(function(i){return i.c!==r.c;});}
+        else{(S.removed[S.tab]=S.removed[S.tab]||[]).push(r.c);}
+        delete S.rows[k];guardar();renderTodo();
+      });
+    }
+  });
+  document.addEventListener('change',function(e){
+    var t=e.target,a=t.getAttribute('data-a');if(!a)return;
+    var f=t.closest('.fila');if(!f)return;
+    var k=f.getAttribute('data-k'),st=S.rows[k]=S.rows[k]||{},tipo=DATA[S.tab].tipo;
+    if(a==='on'){
+      st.on=t.checked?1:0;
+      if(t.checked&&!st.u){st.u=(tipo==='pallet')?'Pallet':'Unidad';}
+      guardar();refreshRow(f);afterChange();
+      if(t.checked){var nf=rowEl(k),qi=nf&&nf.querySelector('input[data-a="q"]');if(qi)qi.focus();}
+    }else if(a==='q'){st.q=t.value.trim();t.classList.toggle('falta',!st.q);guardar();}
+    else if(a==='u'){st.u=t.value;guardar();}
+  });
+  el('buscar').addEventListener('input',renderList);
+  el('mailTo').addEventListener('change',function(){S.mail=this.value.trim();guardar();});
+
+  cargar();renderFecha();renderTodo();
+})();
+</script>
+</body>
+</html>

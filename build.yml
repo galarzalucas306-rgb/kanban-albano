@@ -1,0 +1,499 @@
+name: Compilar APK Kanban
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Bajar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Instalar Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Armar el proyecto de Android
+        run: |
+          set -e
+          mkdir -p app/src/main/java/ar/albanocozzuol/kanban app/src/main/assets app/src/main/res/xml app/src/main/res/drawable
+          cp index.html app/src/main/assets/index.html
+          cat > settings.gradle <<'FIN_0'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "KanbanAlbano"
+          include ':app'
+          FIN_0
+          cat > build.gradle <<'FIN_1'
+          plugins {
+              id 'com.android.application' version '8.5.2' apply false
+          }
+          FIN_1
+          cat > gradle.properties <<'FIN_1B'
+          android.useAndroidX=true
+          org.gradle.jvmargs=-Xmx2g
+          FIN_1B
+          cat > app/build.gradle <<'FIN_2'
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'ar.albanocozzuol.kanban'
+              compileSdk 34
+
+              defaultConfig {
+                  applicationId 'ar.albanocozzuol.kanban'
+                  minSdk 24
+                  targetSdk 34
+                  versionCode 1
+                  versionName '1.0'
+              }
+
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+
+          dependencies {
+              implementation 'androidx.core:core:1.12.0'
+          }
+          FIN_2
+          cat > app/src/main/AndroidManifest.xml <<'FIN_3'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <application
+                  android:label="Kanban Albano"
+                  android:icon="@drawable/ic_launcher"
+                  android:allowBackup="true"
+                  android:theme="@android:style/Theme.Material.Light.NoActionBar">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:windowSoftInputMode="adjustResize"
+                      android:configChanges="orientation|screenSize|keyboardHidden">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+                  <provider
+                      android:name="androidx.core.content.FileProvider"
+                      android:authorities="ar.albanocozzuol.kanban.fileprovider"
+                      android:exported="false"
+                      android:grantUriPermissions="true">
+                      <meta-data
+                          android:name="android.support.FILE_PROVIDER_PATHS"
+                          android:resource="@xml/file_paths" />
+                  </provider>
+              </application>
+
+          </manifest>
+          FIN_3
+          cat > app/src/main/res/xml/file_paths.xml <<'FIN_4'
+          <?xml version="1.0" encoding="utf-8"?>
+          <paths>
+              <cache-path name="pdf" path="pdf/" />
+          </paths>
+          FIN_4
+          cat > app/src/main/res/drawable/ic_launcher.xml <<'FIN_5'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp"
+              android:viewportWidth="108" android:viewportHeight="108">
+              <path android:fillColor="#29286B" android:pathData="M0,0 H108 V108 H0 Z" />
+              <path android:fillColor="#FFFFFF" android:pathData="M30,76 L50,32 L60,32 L40,76 Z" />
+              <path android:fillColor="#7FB2E5" android:pathData="M48,76 L68,32 L78,32 L58,76 Z" />
+          </vector>
+          FIN_5
+          cat > app/src/main/java/ar/albanocozzuol/kanban/MainActivity.java <<'FIN_8'
+          package ar.albanocozzuol.kanban;
+
+          import android.app.Activity;
+          import android.content.ClipData;
+          import android.content.Intent;
+          import android.net.Uri;
+          import android.os.Bundle;
+          import android.webkit.JavascriptInterface;
+          import android.webkit.WebResourceRequest;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          import android.widget.Toast;
+
+          import androidx.core.content.FileProvider;
+
+          import java.io.File;
+
+          import org.json.JSONObject;
+
+          public class MainActivity extends Activity {
+
+              private WebView web;
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  web = new WebView(this);
+                  setContentView(web);
+
+                  WebSettings s = web.getSettings();
+                  s.setJavaScriptEnabled(true);
+                  s.setDomStorageEnabled(true);
+
+                  web.addJavascriptInterface(new Puente(), "AndroidKanban");
+                  web.setWebViewClient(new WebViewClient() {
+                      @Override
+                      public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                          return !request.getUrl().toString().startsWith("file:");
+                      }
+                  });
+                  web.loadUrl("file:///android_asset/index.html");
+              }
+
+              private void aviso(final String texto) {
+                  runOnUiThread(new Runnable() {
+                      public void run() {
+                          Toast.makeText(MainActivity.this, texto, Toast.LENGTH_LONG).show();
+                      }
+                  });
+              }
+
+              public class Puente {
+                  @JavascriptInterface
+                  public void compartir(final String json, final String modo, final String correos) {
+                      try {
+                          JSONObject datos = new JSONObject(json);
+                          String planta = datos.optString("planta", "Kanban");
+                          String nombre = "Kanban_" + planta.replace(" ", "_") + "_" + datos.optString("fecha", "hoy") + ".pdf";
+                          File dir = new File(getCacheDir(), "pdf");
+                          dir.mkdirs();
+                          File[] viejos = dir.listFiles();
+                          if (viejos != null) {
+                              for (File v : viejos) {
+                                  v.delete();
+                              }
+                          }
+                          File archivo = new File(dir, nombre);
+                          PdfKanban.crear(datos, archivo);
+                          final Uri uri = FileProvider.getUriForFile(MainActivity.this, "ar.albanocozzuol.kanban.fileprovider", archivo);
+                          final String asunto = datos.optString("titulo") + " · " + datos.optString("meta");
+                          final String modoFinal = modo;
+                          final String correosFinal = correos;
+                          runOnUiThread(new Runnable() {
+                              public void run() {
+                                  try {
+                                      if ("wsp".equals(modoFinal)) {
+                                          enviarWhatsApp(uri, asunto);
+                                      } else {
+                                          enviarCorreo(uri, asunto, correosFinal);
+                                      }
+                                  } catch (Exception e) {
+                                      Toast.makeText(MainActivity.this, "No se pudo abrir la aplicación para enviar.", Toast.LENGTH_LONG).show();
+                                  }
+                              }
+                          });
+                      } catch (Exception e) {
+                          aviso("No se pudo armar el PDF.");
+                      }
+                  }
+              }
+
+              private void enviarWhatsApp(Uri uri, String texto) {
+                  String[] paquetes = {"com.whatsapp", "com.whatsapp.w4b"};
+                  for (String p : paquetes) {
+                      try {
+                          Intent i = new Intent(Intent.ACTION_SEND);
+                          i.setType("application/pdf");
+                          i.putExtra(Intent.EXTRA_STREAM, uri);
+                          i.putExtra(Intent.EXTRA_TEXT, texto);
+                          i.setClipData(ClipData.newRawUri("pdf", uri));
+                          i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                          i.setPackage(p);
+                          startActivity(i);
+                          return;
+                      } catch (Exception e) {
+                          // probar el siguiente
+                      }
+                  }
+                  // Si no hay WhatsApp, se ofrece el menu de compartir normal.
+                  Intent i = new Intent(Intent.ACTION_SEND);
+                  i.setType("application/pdf");
+                  i.putExtra(Intent.EXTRA_STREAM, uri);
+                  i.putExtra(Intent.EXTRA_TEXT, texto);
+                  i.setClipData(ClipData.newRawUri("pdf", uri));
+                  i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                  startActivity(Intent.createChooser(i, "Compartir PDF"));
+              }
+
+              private void enviarCorreo(Uri uri, String asunto, String correos) {
+                  String[] para = correos.split(",");
+                  try {
+                      Intent i = new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:"));
+                      i.putExtra(Intent.EXTRA_EMAIL, para);
+                      i.putExtra(Intent.EXTRA_SUBJECT, asunto);
+                      i.putExtra(Intent.EXTRA_TEXT, "Se adjunta el " + asunto + ".");
+                      i.putExtra(Intent.EXTRA_STREAM, uri);
+                      i.setClipData(ClipData.newRawUri("pdf", uri));
+                      i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                      startActivity(i);
+                  } catch (Exception e) {
+                      Intent i = new Intent(Intent.ACTION_SEND);
+                      i.setType("application/pdf");
+                      i.putExtra(Intent.EXTRA_EMAIL, para);
+                      i.putExtra(Intent.EXTRA_SUBJECT, asunto);
+                      i.putExtra(Intent.EXTRA_TEXT, "Se adjunta el " + asunto + ".");
+                      i.putExtra(Intent.EXTRA_STREAM, uri);
+                      i.setClipData(ClipData.newRawUri("pdf", uri));
+                      i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                      startActivity(Intent.createChooser(i, "Enviar correo"));
+                  }
+              }
+
+              @Override
+              public void onBackPressed() {
+                  if (web != null) {
+                      web.evaluateJavascript("(function(){var p=document.getElementById('pdf');if(p&&!p.hidden){p.hidden=true;return 1;}return 0;})()",
+                          new android.webkit.ValueCallback<String>() {
+                              public void onReceiveValue(String v) {
+                                  if (!"1".equals(v)) {
+                                      finish();
+                                  }
+                              }
+                          });
+                  } else {
+                      super.onBackPressed();
+                  }
+              }
+          }
+          FIN_8
+          cat > app/src/main/java/ar/albanocozzuol/kanban/PdfKanban.java <<'FIN_9'
+          package ar.albanocozzuol.kanban;
+
+          import android.graphics.Canvas;
+          import android.graphics.Color;
+          import android.graphics.Paint;
+          import android.graphics.Typeface;
+          import android.graphics.pdf.PdfDocument;
+          import android.text.Layout;
+          import android.text.StaticLayout;
+          import android.text.TextPaint;
+
+          import org.json.JSONArray;
+          import org.json.JSONObject;
+
+          import java.io.File;
+          import java.io.FileOutputStream;
+
+          public class PdfKanban {
+
+              static final int W = 595, H = 842, M = 36;
+              static final int AZUL = Color.parseColor("#29286b");
+
+              PdfDocument doc = new PdfDocument();
+              PdfDocument.Page page;
+              Canvas c;
+              int nro = 0;
+              float y;
+
+              TextPaint normal = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+              TextPaint negrita = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+              TextPaint cab = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+              Paint relleno = new Paint();
+              Paint linea = new Paint();
+
+              public static void crear(JSONObject datos, File salida) throws Exception {
+                  PdfKanban k = new PdfKanban();
+                  k.armar(datos, salida);
+              }
+
+              void armar(JSONObject datos, File salida) throws Exception {
+                  normal.setColor(Color.parseColor("#1c1d33"));
+                  normal.setTextSize(10);
+                  negrita.setColor(Color.parseColor("#1c1d33"));
+                  negrita.setTextSize(10);
+                  negrita.setTypeface(Typeface.DEFAULT_BOLD);
+                  cab.setColor(Color.WHITE);
+                  cab.setTextSize(9.5f);
+                  cab.setTypeface(Typeface.DEFAULT_BOLD);
+                  linea.setColor(Color.parseColor("#d9dce8"));
+                  linea.setStrokeWidth(0.7f);
+
+                  nuevaPagina();
+                  // Encabezado de marca
+                  TextPaint marca = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+                  marca.setColor(AZUL);
+                  marca.setTypeface(Typeface.DEFAULT_BOLD);
+                  marca.setTextSize(11);
+                  c.drawText("ALBANO", M, y + 10, marca);
+                  marca.setTextSize(15);
+                  c.drawText("COZZUOL", M, y + 26, marca);
+                  y += 44;
+
+                  TextPaint t = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+                  t.setColor(Color.parseColor("#1c1d33"));
+                  t.setTypeface(Typeface.DEFAULT_BOLD);
+                  t.setTextSize(18);
+                  c.drawText(datos.optString("titulo"), M, y + 16, t);
+                  y += 26;
+                  TextPaint meta = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+                  meta.setColor(Color.parseColor("#666a82"));
+                  meta.setTextSize(10);
+                  c.drawText(datos.optString("meta"), M, y + 10, meta);
+                  y += 24;
+
+                  JSONArray secs = datos.getJSONArray("secs");
+                  for (int s = 0; s < secs.length(); s++) {
+                      JSONObject sec = secs.getJSONObject(s);
+                      String titulo = sec.optString("t", "");
+                      JSONArray cols = sec.getJSONArray("cols");
+                      JSONArray filas = sec.getJSONArray("rows");
+                      float[] anchos = anchos(cols);
+
+                      if (titulo.length() > 0) {
+                          if (y + 60 > H - M) nuevaPagina();
+                          TextPaint h = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+                          h.setColor(AZUL);
+                          h.setTypeface(Typeface.DEFAULT_BOLD);
+                          h.setTextSize(12);
+                          c.drawText(titulo, M, y + 12, h);
+                          y += 20;
+                      } else if (y + 50 > H - M) {
+                          nuevaPagina();
+                      }
+                      filaCabecera(cols, anchos);
+
+                      for (int r = 0; r < filas.length(); r++) {
+                          JSONObject f = filas.getJSONObject(r);
+                          JSONArray cel = f.getJSONArray("c");
+                          boolean prio = f.optInt("p", 0) == 1;
+                          StaticLayout[] ls = new StaticLayout[cel.length()];
+                          float alto = 0;
+                          for (int i = 0; i < cel.length(); i++) {
+                              TextPaint p = (i == 0 || prio) ? negrita : normal;
+                              String txt = cel.getString(i);
+                              ls[i] = StaticLayout.Builder.obtain(txt, 0, txt.length(), p, (int) (anchos[i] - 8)).build();
+                              if (ls[i].getHeight() > alto) alto = ls[i].getHeight();
+                          }
+                          alto += 10;
+                          if (y + alto > H - M) {
+                              nuevaPagina();
+                              filaCabecera(cols, anchos);
+                          }
+                          if (prio) {
+                              relleno.setColor(Color.parseColor("#cdeed8"));
+                              c.drawRect(M, y, W - M, y + alto, relleno);
+                          }
+                          float x = M;
+                          for (int i = 0; i < ls.length; i++) {
+                              c.save();
+                              c.translate(x + 4, y + 5);
+                              ls[i].draw(c);
+                              c.restore();
+                              x += anchos[i];
+                          }
+                          c.drawLine(M, y + alto, W - M, y + alto, linea);
+                          y += alto;
+                      }
+                      y += 16;
+                  }
+                  if (secs.length() == 0) {
+                      c.drawText("No hay insumos tildados.", M, y + 12, normal);
+                  }
+                  doc.finishPage(page);
+                  FileOutputStream os = new FileOutputStream(salida);
+                  doc.writeTo(os);
+                  os.close();
+                  doc.close();
+              }
+
+              float[] anchos(JSONArray cols) throws Exception {
+                  float[] pesos = new float[cols.length()];
+                  float suma = 0;
+                  for (int i = 0; i < pesos.length; i++) {
+                      String n = cols.getString(i);
+                      float p = 1.4f;
+                      if (n.equals("Código")) p = 1.1f;
+                      else if (n.equals("Descripción")) p = 3.2f;
+                      else if (n.equals("Stock ideal")) p = 1.6f;
+                      else if (n.equals("Cantidad")) p = 1.6f;
+                      else if (n.equals("Prioridad")) p = 1.2f;
+                      pesos[i] = p;
+                      suma += p;
+                  }
+                  float[] anchos = new float[pesos.length];
+                  for (int i = 0; i < pesos.length; i++) {
+                      anchos[i] = (W - 2 * M) * pesos[i] / suma;
+                  }
+                  return anchos;
+              }
+
+              void filaCabecera(JSONArray cols, float[] anchos) throws Exception {
+                  relleno.setColor(AZUL);
+                  c.drawRect(M, y, W - M, y + 20, relleno);
+                  float x = M;
+                  for (int i = 0; i < cols.length(); i++) {
+                      c.drawText(cols.getString(i), x + 4, y + 14, cab);
+                      x += anchos[i];
+                  }
+                  y += 20;
+              }
+
+              void nuevaPagina() {
+                  if (page != null) {
+                      doc.finishPage(page);
+                  }
+                  nro++;
+                  page = doc.startPage(new PdfDocument.PageInfo.Builder(W, H, nro).create());
+                  c = page.getCanvas();
+                  y = M;
+              }
+          }
+          FIN_9
+          find . -path ./.git -prune -o -type f -print | sort
+
+      - name: Compilar el APK
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Renombrar el APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk kanban-albano.apk
+
+      - name: Guardar copia del APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: kanban-albano-apk
+          path: kanban-albano.apk
+
+      - name: Publicar el APK para descargar
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Kanban Albano v${{ github.run_number }}
+          files: kanban-albano.apk
